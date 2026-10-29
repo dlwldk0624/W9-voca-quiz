@@ -1,0 +1,458 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>English Vocabulary Quiz</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f1f5f9;
+      color: #1e293b;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 500px;
+      background: white;
+      padding: 32px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    h1 {
+      margin-top: 0;
+      text-align: center;
+      color: #2563eb;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #64748b;
+      font-size: 14px;
+    }
+
+    .progress {
+      margin: 25px 0 12px;
+      font-weight: bold;
+      color: #475569;
+    }
+
+    .word {
+      font-size: 30px;
+      font-weight: bold;
+      text-align: center;
+      margin: 28px 0;
+    }
+
+    .options {
+      display: grid;
+      gap: 12px;
+    }
+
+    .option {
+      padding: 15px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      background: white;
+      font-size: 16px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .option:hover:not(:disabled) {
+      border-color: #2563eb;
+      background: #eff6ff;
+    }
+
+    .option:disabled {
+      cursor: default;
+      opacity: 1;
+    }
+
+    .option.correct {
+      border-color: #16a34a;
+      background: #dcfce7;
+    }
+
+    .option.wrong {
+      border-color: #dc2626;
+      background: #fee2e2;
+    }
+
+    .feedback {
+      margin-top: 20px;
+      min-height: 25px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .save-status {
+      margin-top: 10px;
+      color: #64748b;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .next-button,
+    .restart-button {
+      display: block;
+      width: 100%;
+      margin-top: 22px;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: #2563eb;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .next-button:hover,
+    .restart-button:hover {
+      background: #1d4ed8;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .result {
+      text-align: center;
+    }
+
+    .score {
+      margin: 25px 0;
+      font-size: 42px;
+      font-weight: bold;
+      color: #2563eb;
+    }
+
+    .status-list {
+      margin-top: 20px;
+      padding: 14px;
+      background: #f8fafc;
+      border-radius: 10px;
+      text-align: left;
+      font-size: 14px;
+      line-height: 1.8;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <h1>English Vocabulary Quiz</h1>
+    <p class="subtitle">영어 단어의 올바른 뜻을 선택하세요.</p>
+
+    <section id="quiz-screen">
+      <div id="progress" class="progress"></div>
+      <div id="word" class="word"></div>
+      <div id="options" class="options"></div>
+
+      <div id="feedback" class="feedback" aria-live="polite"></div>
+      <div id="save-status" class="save-status" aria-live="polite"></div>
+
+      <button id="next-button" class="next-button hidden"
+              type="button">
+        다음 문제
+      </button>
+    </section>
+
+    <section id="result-screen" class="result hidden">
+      <h2>퀴즈 완료!</h2>
+      <p>최종 점수</p>
+      <div id="final-score" class="score"></div>
+
+      <div id="result-status" class="status-list"
+           aria-live="polite"></div>
+
+      <button id="restart-button" class="restart-button"
+              type="button">
+        다시 풀기
+      </button>
+    </section>
+  </main>
+
+  <!-- Supabase JavaScript v2 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    // 1. Supabase 프로젝트 정보 입력
+    const SUPABASE_URL = "YOUR_SUPABASE_URL";
+    const SUPABASE_PUBLISHABLE_KEY = "YOUR_PUBLISHABLE_KEY";
+
+    // 2. Supabase 클라이언트 생성
+    let supabaseClient = null;
+
+    const isConfigured =
+      SUPABASE_URL !== "YOUR_SUPABASE_URL" &&
+      SUPABASE_PUBLISHABLE_KEY !== "YOUR_PUBLISHABLE_KEY";
+
+    if (isConfigured && window.supabase) {
+      supabaseClient = window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_PUBLISHABLE_KEY
+      );
+    }
+
+    // 3. 퀴즈 데이터
+    const questions = [
+      {
+        english_word: "abundant",
+        options: ["조용한", "풍부한", "위험한", "느린"],
+        answer: "풍부한"
+      },
+      {
+        english_word: "reluctant",
+        options: ["주저하는", "열정적인", "정확한", "부지런한"],
+        answer: "주저하는"
+      },
+      {
+        english_word: "brief",
+        options: ["강력한", "평범한", "짧은", "불규칙한"],
+        answer: "짧은"
+      }
+    ];
+
+    // 4. 화면 요소
+    const quizScreen = document.getElementById("quiz-screen");
+    const resultScreen = document.getElementById("result-screen");
+    const progressEl = document.getElementById("progress");
+    const wordEl = document.getElementById("word");
+    const optionsEl = document.getElementById("options");
+    const feedbackEl = document.getElementById("feedback");
+    const saveStatusEl = document.getElementById("save-status");
+    const nextButton = document.getElementById("next-button");
+    const finalScoreEl = document.getElementById("final-score");
+    const resultStatusEl = document.getElementById("result-status");
+    const restartButton = document.getElementById("restart-button");
+
+    // 5. 퀴즈 상태
+    let attemptId;
+    let currentQuestionIndex;
+    let score;
+    let questionStartTime;
+    let answered;
+    let saveStatuses;
+
+    // 6. 새로운 응시 시작
+    function startQuiz() {
+      // 응시할 때마다 새로운 UUID 생성
+      attemptId = crypto.randomUUID();
+
+      currentQuestionIndex = 0;
+      score = 0;
+      answered = false;
+      saveStatuses = ["대기", "대기", "대기"];
+
+      resultScreen.classList.add("hidden");
+      quizScreen.classList.remove("hidden");
+
+      showQuestion();
+    }
+
+    // 7. 문제 표시
+    function showQuestion() {
+      answered = false;
+
+      const question = questions[currentQuestionIndex];
+
+      progressEl.textContent =
+        `문제 ${currentQuestionIndex + 1} / ${questions.length}`;
+
+      wordEl.textContent = question.english_word;
+      optionsEl.innerHTML = "";
+      feedbackEl.textContent = "";
+      saveStatusEl.textContent = "";
+
+      nextButton.classList.add("hidden");
+
+      question.options.forEach((option) => {
+        const button = document.createElement("button");
+
+        button.type = "button";
+        button.className = "option";
+        button.textContent = option;
+
+        button.addEventListener("click", () => {
+          selectAnswer(option);
+        });
+
+        optionsEl.appendChild(button);
+      });
+
+      // 문제가 표시된 후 타이머 시작
+      questionStartTime = performance.now();
+    }
+
+    // 8. 최초 답변 선택
+    function selectAnswer(chosenAnswer) {
+      // 이미 답했다면 추가 실행 차단
+      if (answered) {
+        return;
+      }
+
+      // 첫 선택 순간의 응답 시간 측정
+      const responseTimeMs = Math.max(
+        0,
+        Math.round(performance.now() - questionStartTime)
+      );
+
+      // 즉시 잠금 (중복 클릭 방지)
+      answered = true;
+
+      const questionIndex = currentQuestionIndex;
+      const question = questions[questionIndex];
+      const isCorrect = chosenAnswer === question.answer;
+
+      if (isCorrect) {
+        score += 1;
+        feedbackEl.textContent = "정답입니다! 🎉";
+        feedbackEl.style.color = "#16a34a";
+      } else {
+        feedbackEl.textContent =
+          `오답입니다. 정답: ${question.answer}`;
+        feedbackEl.style.color = "#dc2626";
+      }
+
+      // 모든 선택지 비활성화
+      const buttons = optionsEl.querySelectorAll("button");
+
+      buttons.forEach((button) => {
+        button.disabled = true;
+
+        if (button.textContent === question.answer) {
+          button.classList.add("correct");
+        } else if (button.textContent === chosenAnswer) {
+          button.classList.add("wrong");
+        }
+      });
+
+      // INSERT에 사용할 데이터
+      const answerData = {
+        attempt_id: attemptId,
+        question_no: questionIndex + 1,
+        english_word: question.english_word,
+        chosen_answer: chosenAnswer,
+        is_correct: isCorrect,
+        response_time_ms: responseTimeMs
+      };
+
+      // 저장은 한 번만 요청하고, 완료를 기다리지 않음
+      saveAnswer(answerData, questionIndex);
+
+      nextButton.textContent =
+        questionIndex === questions.length - 1
+          ? "결과 보기"
+          : "다음 문제";
+
+      nextButton.classList.remove("hidden");
+    }
+
+    // 9. Supabase INSERT
+    async function saveAnswer(answerData, questionIndex) {
+      saveStatuses[questionIndex] = "저장 중";
+
+      if (currentQuestionIndex === questionIndex) {
+        saveStatusEl.textContent = "응답 저장 중...";
+      }
+
+      try {
+        if (!supabaseClient) {
+          throw new Error("Supabase 연결 정보가 없습니다.");
+        }
+
+        // INSERT만 실행 (SELECT, UPDATE, DELETE 없음)
+        const { error } = await supabaseClient
+          .from("quiz_answers")
+          .insert(answerData);
+
+        if (error) {
+          throw error;
+        }
+
+        saveStatuses[questionIndex] = "저장 성공";
+
+      } catch (error) {
+        saveStatuses[questionIndex] = "저장 실패";
+        console.error("Supabase 저장 오류:", error);
+      }
+
+      // 이미 다음 문제로 넘어갔다면 이전 상태를 표시하지 않음
+      if (currentQuestionIndex === questionIndex &&
+          !quizScreen.classList.contains("hidden")) {
+        saveStatusEl.textContent =
+          `문제 ${questionIndex + 1}: ${saveStatuses[questionIndex]}`;
+      }
+
+      // 결과 화면이 열려 있으면 상태 갱신
+      if (!resultScreen.classList.contains("hidden") &&
+          resultScreen.dataset.attemptId === answerData.attempt_id) {
+        updateResultStatus();
+      }
+    }
+
+    // 10. 다음 문제 또는 결과로 이동
+    function goNext() {
+      if (!answered) {
+        return;
+      }
+
+      if (currentQuestionIndex < questions.length - 1) {
+        currentQuestionIndex += 1;
+        showQuestion();
+      } else {
+        showResult();
+      }
+    }
+
+    // 11. 결과 화면
+    function showResult() {
+      quizScreen.classList.add("hidden");
+      resultScreen.classList.remove("hidden");
+
+      resultScreen.dataset.attemptId = attemptId;
+
+      finalScoreEl.textContent = `${score} / 3점`;
+      updateResultStatus();
+    }
+
+    // 12. 문제별 저장 상태
+    function updateResultStatus() {
+      resultStatusEl.replaceChildren();
+
+      const heading = document.createElement("strong");
+      heading.textContent = "Supabase 저장 상태";
+      resultStatusEl.appendChild(heading);
+
+      saveStatuses.forEach((status, index) => {
+        const line = document.createElement("div");
+        line.textContent = `문제 ${index + 1}: ${status}`;
+        resultStatusEl.appendChild(line);
+      });
+    }
+
+    // 13. 버튼 이벤트
+    nextButton.addEventListener("click", goNext);
+
+    restartButton.addEventListener("click", startQuiz);
+
+    // 14. 최초 실행
+    startQuiz();
+  </script>
+</body>
+</html>
